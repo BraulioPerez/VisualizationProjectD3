@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflix Data Analytics Dashboard - D3.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #221f1f 0%, #e50914 100%);
+            min-height: 100vh;
+            padding: 0;
+            color: white;
+            margin: 0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Loading indicator */
+        .loading {
+            text-align: center;
+            font-size: 1.5em;
+            margin: 50px 0;
+            color: #feca57;
+        }
+
+        /* Overview Section */
+        .overview-section {
+            background: linear-gradient(120deg, #0f0f23 0%, #1a1a2e 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(229, 9, 20, 0.3);
+        }
+
+        .overview-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(229, 9, 20, 0.1);
+            border: 2px solid #e50914;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #feca57;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 1.1em;
+            color: #ffffff;
+            opacity: 0.9;
+        }
+
+        /* Grid Layout */
+        .visualizations-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .visualization-section {
+            padding: 25px;
+            border-radius: 18px;
+            background: linear-gradient(120deg, #2c1810 0%, #8b0000 100%);
+            box-shadow: 0 8px 32px rgba(229, 9, 20, 0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .visualization-section:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(229, 9, 20, 0.3);
+        }
+
+        .visualization-section:nth-child(2n) {
+            background: linear-gradient(120deg, #1a1a2e 0%, #16213e 100%);
+        }
+        .visualization-section:nth-child(3n) {
+            background: linear-gradient(120deg, #2d1b69 0%, #11998e 100%);
+        }
+        .visualization-section:nth-child(4n) {
+            background: linear-gradient(120deg, #134e5e 0%, #71b280 100%);
+        }
+        .visualization-section:nth-child(5n) {
+            background: linear-gradient(120deg, #8360c3 0%, #2ebf91 100%);
+        }
+
+        .visualization-section h3 {
+            color: #e50914;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .visualization-section svg {
+            display: block;
+            margin: 0 auto;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Full width visualizations */
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(229, 9, 20, 0.95);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+            max-width: 200px;
+        }
+
+        .netflix-title {
+            text-align: center;
+            font-size: 3em;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin: 20px 0 30px 0;
+            background: linear-gradient(90deg, #e50914 0%, #ff6b6b 50%, #feca57 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 8px rgba(229, 9, 20, 0.3);
+        }
+
+        .controls {
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .control-button {
+            background: #e50914;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 3px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .control-button:hover {
+            background: #f40612;
+            transform: translateY(-2px);
+        }
+
+        .control-button.active {
+            background: #feca57;
+            color: #000;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .visualizations-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .overview-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            .netflix-title {
+                font-size: 2em;
+            }
+            .overview-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animation classes */
+        .fade-in {
+            opacity: 0;
+            animation: fadeIn 0.8s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .error-message {
+            background: rgba(229, 9, 20, 0.2);
+            border: 2px solid #e50914;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="netflix-title">NETFLIX ANALYTICS DASHBOARD</h1>
+
+        <div id="loading" class="loading">
+            📊 Cargando datos de Netflix...
+        </div>
+
+        <div id="error" style="display: none;"></div>
+
+        <div id="content" style="display: none;">
+            <!-- Overview Section -->
+            <div class="overview-section fade-in">
+                <h2 style="text-align: center; color: #e50914; margin-bottom: 20px;">📊 Resumen General del Dataset</h2>
+                <div class="overview-stats" id="overviewStats">
+                    <!-- Stats will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Visualizations Grid -->
+            <div class="visualizations-grid">
+                <!-- Row 1 -->
+                <div class="visualization-section fade-in">
+                    <h3>📈 Contenido por Año</h3>
+                    <svg id="yearChart" width="600" height="300"></svg>
+                </div>
+
+                <div class="visualization-section fade-in">
+                    <h3>🎭 Tipos de Contenido</h3>
+                    <svg id="typeChart" width="600" height="300"></svg>
+                </div>
+
+                <!-- Row 2 -->
+                <div class="visualization-section fade-in">
+                    <h3>🌍 Top Países Productores</h3>
+                    <div class="controls">
+                        <button class="control-button active" onclick="updateCountryView('all')">Todo</button>
+                        <button class="control-button" onclick="updateCountryView('Movie')">Películas</button>
+                        <button class="control-button" onclick="updateCountryView('TV Show')">Series</button>
+                    </div>
+                    <svg id="countryChart" width="600" height="320"></svg>
+                </div>
+
+                <div class="visualization-section fade-in">
+                    <h3>⏱️ Duración de Películas</h3>
+                    <svg id="durationChart" width="600" height="320"></svg>
+                </div>
+
+                <!-- Row 3 -->
+                <div class="visualization-section fade-in">
+                    <h3>🏷️ Distribución por Rating</h3>
+                    <div class="controls">
+                        <button class="control-button" onclick="animateRatings()">Animar</button>
+                        <button class="control-button" onclick="resetRatings()">Reset</button>
+                    </div>
+                    <svg id="ratingChart" width="600" height="320"></svg>
+                </div>
+
+                <div class="visualization-section fade-in">
+                    <h3>🎬 Géneros Populares</h3>
+                    <div class="controls">
+                        <button class="control-button" onclick="rotateGenres()">Rotar</button>
+                    </div>
+                    <svg id="genreChart" width="600" height="320"></svg>
+                </div>
+
+                <!-- Row 4 -->
+                <div class="visualization-section fade-in">
+                    <h3>👥 Análisis de Cast</h3>
+                    <svg id="castChart" width="600" height="320"></svg>
+                </div>
+
+                <div class="visualization-section fade-in">
+                    <h3>🎯 Contenido por Década</h3>
+                    <div class="controls">
+                        <button class="control-button" onclick="animateDecades()">Animar</button>
+                    </div>
+                    <svg id="decadeChart" width="600" height="320"></svg>
+                </div>
+
+                <!-- Full width visualizations -->
+                <div class="visualization-section full-width fade-in">
+                    <h3>📅 Timeline de Adiciones a Netflix</h3>
+                    <div class="controls">
+                        <button class="control-button" onclick="updateTimeline('Movie')">Solo Películas</button>
+                        <button class="control-button" onclick="updateTimeline('TV Show')">Solo Series</button>
+                        <button class="control-button active" onclick="updateTimeline('all')">Ambos</button>
+                    </div>
+                    <svg id="timelineChart" width="1300" height="300"></svg>
+                </div>
+
+                <div class="visualization-section full-width fade-in">
+                    <h3>🌐 Mapa de Calor: Países vs Géneros</h3>
+                    <svg id="heatmapChart" width="1300" height="400"></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // Global variables
+        let netflixData = [];
+        const tooltip = d3.select('#tooltip');
+
+        // Animation variables
+        let ratingBars = null;
+        let ratingYScale = null;
+        let ratingHeight = 0;
+        let genreData = null;
+        let genreBars = null;
+        let decadeBars = null;
+        let decadeYScale = null;
+        let decadeHeight = 0;
+
+        // Load the CSV data
+        function loadData() {
+            d3.csv("cleaned_netflix_titles.csv").then(function(data) {
+                console.log("Datos cargados:", data.length, "filas");
+
+                // Process and clean the data
+                netflixData = data.map(d => ({
+                    show_id: d.show_id,
+                    type: d.type,
+                    title: d.title,
+                    director: d.director,
+                    cast: d.cast,
+                    country: d.country,
+                    date_added: d.date_added,
+                    release_year: +d.release_year,
+                    rating: d.rating,
+                    duration: d.duration,
+                    listed_in: d.listed_in,
+                    description: d.description,
+                    month_added: +d.month_added,
+                    month_name_added: d.month_name_added,
+                    year_added: +d.year_added,
+                    duration_value: +d.duration_value,
+                    duration_type: d.duration_type,
+                    primary_country: d.primary_country,
+                    country_count: +d.country_count,
+                    primary_genre: d.primary_genre,
+                    genre_count: +d.genre_count,
+                    cast_count: +d.cast_count,
+                    director_count: +d.director_count,
+                    primary_cast: d.primary_cast,
+                    primary_director: d.primary_director
+                }));
+
+                // Filter out invalid data
+                netflixData = netflixData.filter(d =>
+                    d.release_year &&
+                    d.release_year > 1900 &&
+                    d.release_year < 2030 &&
+                    d.primary_country &&
+                    d.primary_genre
+                );
+
+                console.log("Datos procesados:", netflixData.length, "filas válidas");
+
+                // Hide loading, show content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                // Initialize all visualizations
+                initAllVisualizations();
+
+            }).catch(function(error) {
+                console.error("Error cargando los datos:", error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').innerHTML = `
+                    <div class="error-message">
+                        <h3>❌ Error al cargar los datos</h3>
+                        <p>No se pudo cargar el archivo 'cleaned_netflix_titles.csv'.</p>
+                        <p>Asegúrate de que el archivo esté en la misma carpeta que este HTML.</p>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            });
+        }
+
+        // Create overview statistics
+        function createOverview() {
+            if (!netflixData.length) return;
+
+            const totalContent = netflixData.length;
+            const totalMovies = netflixData.filter(d => d.type === 'Movie').length;
+            const totalShows = netflixData.filter(d => d.type === 'TV Show').length;
+            const totalCountries = new Set(netflixData.map(d => d.primary_country).filter(d => d)).size;
+            const totalGenres = new Set(netflixData.map(d => d.primary_genre).filter(d => d)).size;
+            const avgDuration = Math.round(d3.mean(netflixData.filter(d => d.type === 'Movie' && d.duration_value), d => d.duration_value) || 0);
+
+            const stats = [
+                { label: "Total Contenido", value: totalContent.toLocaleString(), icon: "🎬" },
+                { label: "Películas", value: totalMovies.toLocaleString(), icon: "🎭" },
+                { label: "Series TV", value: totalShows.toLocaleString(), icon: "📺" },
+                { label: "Países", value: totalCountries, icon: "🌍" },
+                { label: "Géneros", value: totalGenres, icon: "🎪" },
+                { label: "Duración Promedio", value: `${avgDuration}min`, icon: "⏱️" }
+            ];
+
+            const container = d3.select('#overviewStats');
+            container.selectAll('*').remove();
+
+            const cards = container.selectAll('.stat-card')
+                .data(stats)
+                .enter()
+                .append('div')
+                .attr('class', 'stat-card')
+                .style('opacity', 0);
+
+            cards.append('div')
+                .attr('class', 'stat-number')
+                .text(d => d.value);
+
+            cards.append('div')
+                .attr('class', 'stat-label')
+                .text(d => `${d.icon} ${d.label}`);
+
+            // Animate cards
+            cards.transition()
+                .duration(600)
+                .delay((d, i) => i * 100)
+                .style('opacity', 1);
+        }
+
+        // 1. Year distribution
+        function createYearChart() {
+            const svg = d3.select("#yearChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const margin = {top: 20, right: 30, bottom: 40, left: 50};
+            const width = 600 - margin.left - margin.right;
+            const height = 300 - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const yearCounts = d3.rollup(netflixData, v => v.length, d => d.release_year);
+            const data = Array.from(yearCounts, ([year, count]) => ({year, count}))
+                .filter(d => d.year && d.year > 1900)
+                .sort((a, b) => a.year - b.year);
+
+            const xScale = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.year))
+                .range([0, width]);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.count)])
+                .range([height, 0]);
+
+            // Area chart
+            const area = d3.area()
+                .x(d => xScale(d.year))
+                .y0(height)
+                .y1(d => yScale(d.count))
+                .curve(d3.curveMonotoneX);
+
+            // Define gradient
+            const gradient = svg.append("defs")
+                .append("linearGradient")
+                .attr("id", "yearGradient")
+                .attr("gradientUnits", "userSpaceOnUse")
+                .attr("x1", 0).attr("y1", height)
+                .attr("x2", 0).attr("y2", 0);
+
+            gradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", "#e50914")
+                .attr("stop-opacity", 0.1);
+
+            gradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", "#e50914")
+                .attr("stop-opacity", 0.8);
+
+            g.append("path")
+                .datum(data)
+                .attr("fill", "url(#yearGradient)")
+                .attr("d", area);
+
+            // Line
+            const line = d3.line()
+                .x(d => xScale(d.year))
+                .y(d => yScale(d.count))
+                .curve(d3.curveMonotoneX);
+
+            g.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", "#feca57")
+                .attr("stroke-width", 3)
+                .attr("d", line);
+
+            // Points
+            g.selectAll(".dot")
+                .data(data.filter((d, i) => i % 5 === 0)) // Show every 5th point to avoid clutter
+                .enter().append("circle")
+                .attr("class", "dot")
+                .attr("cx", d => xScale(d.year))
+                .attr("cy", d => yScale(d.count))
+                .attr("r", 4)
+                .attr("fill", "#feca57")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("r", 6);
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.year}</strong><br>Contenidos: ${d.count}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("r", 4);
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale).tickFormat(d3.format("d")))
+                .selectAll("text")
+                .style("fill", "white");
+
+            g.append("g")
+                .call(d3.axisLeft(yScale))
+                .selectAll("text")
+                .style("fill", "white");
+        }
+
+        // 2. Content types
+        function createTypeChart() {
+            const svg = d3.select("#typeChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const width = 600, height = 300;
+            const radius = Math.min(width, height) / 2 - 40;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${width/2},${height/2})`);
+
+            const typeCounts = d3.rollup(netflixData, v => v.length, d => d.type);
+            const data = Array.from(typeCounts, ([type, count]) => ({type, count}));
+
+            const color = d3.scaleOrdinal()
+                .domain(data.map(d => d.type))
+                .range(["#e50914", "#feca57"]);
+
+            const pie = d3.pie()
+                .value(d => d.count)
+                .sort(null);
+
+            const arc = d3.arc()
+                .innerRadius(radius * 0.5)
+                .outerRadius(radius);
+
+            const arcs = g.selectAll(".arc")
+                .data(pie(data))
+                .enter().append("g")
+                .attr("class", "arc");
+
+            arcs.append("path")
+                .attr("d", arc)
+                .attr("fill", d => color(d.data.type))
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))")
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .transition().duration(200)
+                        .attr("transform", "scale(1.05)");
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.data.type}</strong><br>Cantidad: ${d.data.count.toLocaleString()}<br>Porcentaje: ${((d.data.count / netflixData.length) * 100).toFixed(1)}%`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                        .transition().duration(200)
+                        .attr("transform", "scale(1)");
+                    tooltip.style("opacity", 0);
+                });
+
+            // Center text
+            g.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "-0.5em")
+                .style("font-size", "24px")
+                .style("font-weight", "bold")
+                .style("fill", "white")
+                .text(netflixData.length.toLocaleString());
+
+            g.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "1em")
+                .style("font-size", "14px")
+                .style("fill", "#feca57")
+                .text("Total Contenidos");
+
+            // Labels
+            arcs.append("text")
+                .attr("transform", d => `translate(${arc.centroid(d)})`)
+                .attr("text-anchor", "middle")
+                .attr("fill", "white")
+                .attr("font-weight", "bold")
+                .attr("font-size", "14px")
+                .text(d => d.data.type);
+        }
+
+        // 3. Country production
+        let currentCountryFilter = 'all';
+        function createCountryChart() {
+            updateCountryView('all');
+        }
+
+        function updateCountryView(filter) {
+            // Update button states
+            d3.selectAll('.control-button').classed('active', false);
+            d3.select(`[onclick="updateCountryView('${filter}')"]`).classed('active', true);
+
+            currentCountryFilter = filter;
+            const svg = d3.select("#countryChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            let filteredData = netflixData;
+            if (filter === 'Movie') {
+                filteredData = netflixData.filter(d => d.type === 'Movie');
+            } else if (filter === 'TV Show') {
+                filteredData = netflixData.filter(d => d.type === 'TV Show');
+            }
+
+            const countryCounts = d3.rollup(filteredData.filter(d => d.primary_country), v => v.length, d => d.primary_country);
+            const data = Array.from(countryCounts, ([country, count]) => ({country, count}))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 12);
+
+            const margin = {top: 20, right: 30, bottom: 80, left: 50};
+            const width = 600 - margin.left - margin.right;
+            const height = 320 - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const xScale = d3.scaleBand()
+                .domain(data.map(d => d.country))
+                .range([0, width])
+                .padding(0.2);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.count)])
+                .range([height, 0]);
+
+            const colorScale = d3.scaleSequential(d3.interpolateReds)
+                .domain([0, d3.max(data, d => d.count)]);
+
+            // Bars
+            g.selectAll(".bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", d => xScale(d.country))
+                .attr("width", xScale.bandwidth())
+                .attr("y", height)
+                .attr("height", 0)
+                .attr("fill", d => colorScale(d.count))
+                .attr("rx", 4)
+                .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.5)) brightness(1.1)");
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.country}</strong><br>Contenidos: ${d.count.toLocaleString()}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))");
+                    tooltip.style("opacity", 0);
+                })
+                .transition()
+                .duration(800)
+                .delay((d, i) => i * 100)
+                .attr("y", d => yScale(d.count))
+                .attr("height", d => height - yScale(d.count));
+
+            // Value labels on bars
+            g.selectAll(".bar-label")
+                .data(data)
+                .enter().append("text")
+                .attr("class", "bar-label")
+                .attr("x", d => xScale(d.country) + xScale.bandwidth() / 2)
+                .attr("y", height)
+                .attr("text-anchor", "middle")
+                .attr("fill", "white")
+                .attr("font-weight", "bold")
+                .attr("font-size", "10px")
+                .text(d => d.count)
+                .transition()
+                .duration(800)
+                .delay((d, i) => i * 100)
+                .attr("y", d => yScale(d.count) - 5);
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .style("fill", "white")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
+
+            g.append("g")
+                .call(d3.axisLeft(yScale))
+                .selectAll("text")
+                .style("fill", "white");
+        }
+
+        // 4. Duration analysis
+        function createDurationChart() {
+            const svg = d3.select("#durationChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const margin = {top: 20, right: 30, bottom: 40, left: 50};
+            const width = 600 - margin.left - margin.right;
+            const height = 320 - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const movies = netflixData.filter(d => d.type === 'Movie' && d.duration_value && d.duration_value > 0);
+
+            if (!movies.length) return;
+
+            const xScale = d3.scaleLinear()
+                .domain(d3.extent(movies, d => d.duration_value))
+                .range([0, width]);
+
+            const histogram = d3.histogram()
+                .value(d => d.duration_value)
+                .domain(xScale.domain())
+                .thresholds(20);
+
+            const bins = histogram(movies);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(bins, d => d.length)])
+                .range([height, 0]);
+
+            const colorScale = d3.scaleSequential(d3.interpolateBlues)
+                .domain([0, d3.max(bins, d => d.length)]);
+
+            g.selectAll(".bar")
+                .data(bins)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", d => xScale(d.x0))
+                .attr("width", d => Math.max(0, xScale(d.x1) - xScale(d.x0) - 1))
+                .attr("y", d => yScale(d.length))
+                .attr("height", d => height - yScale(d.length))
+                .attr("fill", d => colorScale(d.length))
+                .attr("rx", 2)
+                .style("filter", "drop-shadow(0 1px 3px rgba(0,0,0,0.3))")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).style("filter", "drop-shadow(0 2px 6px rgba(0,0,0,0.5)) brightness(1.1)");
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>Duración:</strong> ${Math.round(d.x0)}-${Math.round(d.x1)} min<br><strong>Películas:</strong> ${d.length}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).style("filter", "drop-shadow(0 1px 3px rgba(0,0,0,0.3))");
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("fill", "white");
+
+            g.append("g")
+                .call(d3.axisLeft(yScale))
+                .selectAll("text")
+                .style("fill", "white");
+
+            // Average line
+            const avgDuration = d3.mean(movies, d => d.duration_value);
+            g.append("line")
+                .attr("x1", xScale(avgDuration))
+                .attr("x2", xScale(avgDuration))
+                .attr("y1", 0)
+                .attr("y2", height)
+                .attr("stroke", "#feca57")
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5,5");
+
+            g.append("text")
+                .attr("x", xScale(avgDuration) + 5)
+                .attr("y", 15)
+                .attr("fill", "#feca57")
+                .attr("font-size", "12px")
+                .text(`Promedio: ${Math.round(avgDuration)}min`);
+        }
+
+        // 5. Rating distribution
+        function createRatingChart() {
+            const svg = d3.select("#ratingChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const margin = {top: 20, right: 30, bottom: 80, left: 50};
+            const width = 600 - margin.left - margin.right;
+            const height = 320 - margin.top - margin.bottom;
+
+            ratingHeight = height;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const ratingCounts = d3.rollup(netflixData.filter(d => d.rating), v => v.length, d => d.rating);
+            const data = Array.from(ratingCounts, ([rating, count]) => ({rating, count}))
+                .sort((a, b) => b.count - a.count);
+
+            const xScale = d3.scaleBand()
+                .domain(data.map(d => d.rating))
+                .range([0, width])
+                .padding(0.1);
+
+            ratingYScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.count)])
+                .range([height, 0]);
+
+            const colorScale = d3.scaleOrdinal()
+                .domain(data.map(d => d.rating))
+                .range(d3.schemeSet3);
+
+            ratingBars = g.selectAll(".rating-bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "rating-bar")
+                .attr("x", d => xScale(d.rating))
+                .attr("width", xScale.bandwidth())
+                .attr("y", height)
+                .attr("height", 0)
+                .attr("fill", d => colorScale(d.rating))
+                .attr("rx", 4)
+                .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.5)) brightness(1.1)");
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>Rating:</strong> ${d.rating}<br><strong>Contenidos:</strong> ${d.count.toLocaleString()}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))");
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("fill", "white")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
+
+            g.append("g")
+                .call(d3.axisLeft(ratingYScale))
+                .selectAll("text")
+                .style("fill", "white");
+
+            setTimeout(() => animateRatings(), 500);
+        }
+
+        // 6. Genre analysis
+        function createGenreChart() {
+            const svg = d3.select("#genreChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const margin = {top: 20, right: 30, bottom: 80, left: 50};
+            const width = 600 - margin.left - margin.right;
+            const height = 320 - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const genreCounts = d3.rollup(netflixData.filter(d => d.primary_genre), v => v.length, d => d.primary_genre);
+            genreData = Array.from(genreCounts, ([genre, count]) => ({genre, count}))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+            const xScale = d3.scaleBand()
+                .domain(genreData.map(d => d.genre))
+                .range([0, width])
+                .padding(0.1);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(genreData, d => d.count)])
+                .range([height, 0]);
+
+            const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+            genreBars = g.selectAll(".genre-bar")
+                .data(genreData)
+                .enter().append("rect")
+                .attr("class", "genre-bar")
+                .attr("x", d => xScale(d.genre))
+                .attr("width", xScale.bandwidth())
+                .attr("y", d => yScale(d.count))
+                .attr("height", d => height - yScale(d.count))
+                .attr("fill", (d, i) => colorScale(i))
+                .attr("rx", 4)
+                .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.5)) brightness(1.1)");
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.genre}</strong><br>Contenidos: ${d.count.toLocaleString()}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))");
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("fill", "white")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
+
+            g.append("g")
+                .call(d3.axisLeft(yScale))
+                .selectAll("text")
+                .style("fill", "white");
+        }
+
+        // 7. Cast analysis
+        function createCastChart() {
+            const svg = d3.select("#castChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const margin = {top: 20, right: 30, bottom: 40, left: 50};
+            const width = 600 - margin.left - margin.right;
+            const height = 320 - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create scatter plot of cast count vs duration for movies
+            const movies = netflixData.filter(d => d.type === 'Movie' && d.cast_count && d.duration_value);
+
+            if (!movies.length) return;
+
+            const xScale = d3.scaleLinear()
+                .domain([0, d3.max(movies, d => d.cast_count)])
+                .range([0, width]);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(movies, d => d.duration_value)])
+                .range([height, 0]);
+
+            // Sample data to avoid overcrowding
+            const sampleMovies = movies.length > 500 ?
+                movies.sort(() => 0.5 - Math.random()).slice(0, 500) : movies;
+
+            // Movie points
+            g.selectAll(".movie-dot")
+                .data(sampleMovies)
+                .enter().append("circle")
+                .attr("class", "movie-dot")
+                .attr("cx", d => xScale(d.cast_count))
+                .attr("cy", d => yScale(d.duration_value))
+                .attr("r", 3)
+                .attr("fill", "#e50914")
+                .attr("opacity", 0.6)
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("r", 5).attr("opacity", 1);
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.title}</strong><br>Cast: ${d.cast_count}<br>Duración: ${d.duration_value}min`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("r", 3).attr("opacity", 0.6);
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("fill", "white");
+
+            g.append("g")
+                .call(d3.axisLeft(yScale))
+                .selectAll("text")
+                .style("fill", "white");
+
+            // Axis labels
+            g.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 35)
+                .attr("text-anchor", "middle")
+                .style("fill", "white")
+                .style("font-size", "12px")
+                .text("Número de Actores en Cast");
+
+            g.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -35)
+                .attr("x", -height / 2)
+                .attr("text-anchor", "middle")
+                .style("fill", "white")
+                .style("font-size", "12px")
+                .text("Duración (minutos)");
+        }
+
+        // 8. Decade analysis
+        function createDecadeChart() {
+            const svg = d3.select("#decadeChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const margin = {top: 20, right: 30, bottom: 40, left: 50};
+            const width = 600 - margin.left - margin.right;
+            const height = 320 - margin.top - margin.bottom;
+
+            decadeHeight = height;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Group by decade
+            const decadeData = d3.rollup(netflixData.filter(d => d.release_year),
+                v => v.length,
+                d => Math.floor(d.release_year / 10) * 10
+            );
+            const data = Array.from(decadeData, ([decade, count]) => ({decade: `${decade}s`, count}))
+                .sort((a, b) => a.decade.localeCompare(b.decade));
+
+            const xScale = d3.scaleBand()
+                .domain(data.map(d => d.decade))
+                .range([0, width])
+                .padding(0.1);
+
+            decadeYScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.count)])
+                .range([height, 0]);
+
+            const colorScale = d3.scaleSequential(d3.interpolateViridis)
+                .domain([0, data.length - 1]);
+
+            decadeBars = g.selectAll(".decade-bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "decade-bar")
+                .attr("x", d => xScale(d.decade))
+                .attr("width", xScale.bandwidth())
+                .attr("y", height)
+                .attr("height", 0)
+                .attr("fill", (d, i) => colorScale(i))
+                .attr("rx", 4)
+                .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.5)) brightness(1.1)");
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>Década ${d.decade}</strong><br>Contenidos: ${d.count.toLocaleString()}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.3))");
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("fill", "white");
+
+            g.append("g")
+                .call(d3.axisLeft(decadeYScale))
+                .selectAll("text")
+                .style("fill", "white");
+        }
+
+        // 9. Timeline chart
+        let currentTimelineFilter = 'all';
+        function createTimelineChart() {
+            updateTimeline('all');
+        }
+
+        function updateTimeline(filter) {
+            // Update button states
+            d3.selectAll('[onclick^="updateTimeline"]').classed('active', false);
+            d3.select(`[onclick="updateTimeline('${filter}')"]`).classed('active', true);
+
+            currentTimelineFilter = filter;
+            const svg = d3.select("#timelineChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            let filteredData = netflixData.filter(d => d.year_added && d.month_added);
+            if (filter === 'Movie') {
+                filteredData = filteredData.filter(d => d.type === 'Movie');
+            } else if (filter === 'TV Show') {
+                filteredData = filteredData.filter(d => d.type === 'TV Show');
+            }
+
+            const margin = {top: 20, right: 30, bottom: 40, left: 50};
+            const width = 1300 - margin.left - margin.right;
+            const height = 300 - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Group by year and month
+            const timeData = d3.rollup(filteredData, v => v.length, d => d.year_added, d => d.month_added);
+            const data = [];
+            for (let [year, months] of timeData) {
+                for (let [month, count] of months) {
+                    data.push({
+                        date: new Date(year, month - 1),
+                        count: count,
+                        year: year,
+                        month: month
+                    });
+                }
+            }
+            data.sort((a, b) => a.date - b.date);
+
+            if (!data.length) return;
+
+            const xScale = d3.scaleTime()
+                .domain(d3.extent(data, d => d.date))
+                .range([0, width]);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.count)])
+                .range([height, 0]);
+
+            // Area chart
+            const area = d3.area()
+                .x(d => xScale(d.date))
+                .y0(height)
+                .y1(d => yScale(d.count))
+                .curve(d3.curveMonotoneX);
+
+            // Define gradient
+            const gradient = svg.append("defs")
+                .append("linearGradient")
+                .attr("id", "timelineGradient")
+                .attr("gradientUnits", "userSpaceOnUse")
+                .attr("x1", 0).attr("y1", height)
+                .attr("x2", 0).attr("y2", 0);
+
+            gradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", "#11998e")
+                .attr("stop-opacity", 0.1);
+
+            gradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", "#11998e")
+                .attr("stop-opacity", 0.8);
+
+            g.append("path")
+                .datum(data)
+                .attr("fill", "url(#timelineGradient)")
+                .attr("d", area);
+
+            // Line
+            const line = d3.line()
+                .x(d => xScale(d.date))
+                .y(d => yScale(d.count))
+                .curve(d3.curveMonotoneX);
+
+            g.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", "#feca57")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%Y")))
+                .selectAll("text")
+                .style("fill", "white");
+
+            g.append("g")
+                .call(d3.axisLeft(yScale))
+                .selectAll("text")
+                .style("fill", "white");
+        }
+
+        // 10. Heatmap: Countries vs Genres
+        function createHeatmapChart() {
+            const svg = d3.select("#heatmapChart");
+            svg.selectAll("*").remove();
+
+            if (!netflixData.length) return;
+
+            const margin = {top: 60, right: 100, bottom: 100, left: 150};
+            const width = 1300 - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Get top countries and genres
+            const topCountries = Array.from(d3.rollup(netflixData.filter(d => d.primary_country), v => v.length, d => d.primary_country))
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 12)
+                .map(d => d[0]);
+
+            const topGenres = Array.from(d3.rollup(netflixData.filter(d => d.primary_genre), v => v.length, d => d.primary_genre))
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(d => d[0]);
+
+            // Create matrix data
+            const matrixData = [];
+            topCountries.forEach(country => {
+                topGenres.forEach(genre => {
+                    const count = netflixData.filter(d =>
+                        d.primary_country === country && d.primary_genre === genre
+                    ).length;
+                    matrixData.push({
+                        country: country,
+                        genre: genre,
+                        count: count
+                    });
+                });
+            });
+
+            const xScale = d3.scaleBand()
+                .domain(topCountries)
+                .range([0, width])
+                .padding(0.05);
+
+            const yScale = d3.scaleBand()
+                .domain(topGenres)
+                .range([0, height])
+                .padding(0.05);
+
+            const colorScale = d3.scaleSequential(d3.interpolateYlOrRd)
+                .domain([0, d3.max(matrixData, d => d.count)]);
+
+            // Rectangles
+            g.selectAll(".cell")
+                .data(matrixData)
+                .enter().append("rect")
+                .attr("class", "cell")
+                .attr("x", d => xScale(d.country))
+                .attr("y", d => yScale(d.genre))
+                .attr("width", xScale.bandwidth())
+                .attr("height", yScale.bandwidth())
+                .attr("fill", d => d.count === 0 ? "#2c2c2c" : colorScale(d.count))
+                .attr("rx", 3)
+                .style("filter", "drop-shadow(0 1px 3px rgba(0,0,0,0.3))")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).style("filter", "drop-shadow(0 2px 6px rgba(0,0,0,0.5)) brightness(1.1)");
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.country}</strong><br><strong>${d.genre}</strong><br>Contenidos: ${d.count}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).style("filter", "drop-shadow(0 1px 3px rgba(0,0,0,0.3))");
+                    tooltip.style("opacity", 0);
+                });
+
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("fill", "white")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
+
+            g.append("g")
+                .call(d3.axisLeft(yScale))
+                .selectAll("text")
+                .style("fill", "white");
+
+            // Axis labels
+            g.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 80)
+                .attr("text-anchor", "middle")
+                .style("fill", "white")
+                .style("font-size", "14px")
+                .style("font-weight", "bold")
+                .text("Países");
+
+            g.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -100)
+                .attr("x", -height / 2)
+                .attr("text-anchor", "middle")
+                .style("fill", "white")
+                .style("font-size", "14px")
+                .style("font-weight", "bold")
+                .text("Géneros");
+
+            // Color legend
+            const legendWidth = 200;
+            const legendHeight = 10;
+
+            const legendScale = d3.scaleLinear()
+                .domain([0, d3.max(matrixData, d => d.count)])
+                .range([0, legendWidth]);
+
+            const legendAxis = d3.axisBottom(legendScale)
+                .ticks(5);
+
+            const legend = g.append("g")
+                .attr("transform", `translate(${width - legendWidth}, -40)`);
+
+            // Legend gradient
+            const legendGradient = svg.append("defs")
+                .append("linearGradient")
+                .attr("id", "legendGradient");
+
+            legendGradient.selectAll("stop")
+                .data(d3.range(0, 1.1, 0.1))
+                .enter().append("stop")
+                .attr("offset", d => `${d * 100}%`)
+                .attr("stop-color", d => colorScale(d * d3.max(matrixData, d => d.count)));
+
+            legend.append("rect")
+                .attr("width", legendWidth)
+                .attr("height", legendHeight)
+                .attr("fill", "url(#legendGradient)");
+
+            legend.append("g")
+                .attr("transform", `translate(0, ${legendHeight})`)
+                .call(legendAxis)
+                .selectAll("text")
+                .style("fill", "white");
+
+            legend.append("text")
+                .attr("x", legendWidth / 2)
+                .attr("y", -5)
+                .attr("text-anchor", "middle")
+                .style("fill", "white")
+                .style("font-size", "12px")
+                .text("Número de Contenidos");
+        }
+
+        // Animation functions
+        function animateRatings() {
+            if (ratingBars && ratingYScale) {
+                ratingBars.transition()
+                    .duration(1000)
+                    .delay((d, i) => i * 150)
+                    .attr("y", d => ratingYScale(d.count))
+                    .attr("height", d => ratingHeight - ratingYScale(d.count));
+            }
+        }
+
+        function resetRatings() {
+            if (ratingBars) {
+                ratingBars.transition()
+                    .duration(500)
+                    .attr("y", ratingHeight)
+                    .attr("height", 0);
+            }
+        }
+
+        function rotateGenres() {
+            if (genreBars && genreData) {
+                const shuffledData = [...genreData].sort(() => Math.random() - 0.5);
+                const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+                genreBars.data(shuffledData, d => d.genre)
+                    .transition()
+                    .duration(1000)
+                    .attr("fill", (d, i) => colorScale(i));
+            }
+        }
+
+        function animateDecades() {
+            if (decadeBars && decadeYScale) {
+                decadeBars.transition()
+                    .duration(1000)
+                    .delay((d, i) => i * 200)
+                    .attr("y", d => decadeYScale(d.count))
+                    .attr("height", d => decadeHeight - decadeYScale(d.count));
+            }
+        }
+
+        // Initialize all visualizations
+        function initAllVisualizations() {
+            createOverview();
+            createYearChart();
+            createTypeChart();
+            createCountryChart();
+            createDurationChart();
+            createRatingChart();
+            createGenreChart();
+            createCastChart();
+            createDecadeChart();
+            createTimelineChart();
+            createHeatmapChart();
+        }
+
+        // Make functions globally available
+        window.updateCountryView = updateCountryView;
+        window.animateRatings = animateRatings;
+        window.resetRatings = resetRatings;
+        window.rotateGenres = rotateGenres;
+        window.animateDecades = animateDecades;
+        window.updateTimeline = updateTimeline;
+
+        // Load data and initialize visualizations when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+        });
+    </script>
+</body>
+</html>
